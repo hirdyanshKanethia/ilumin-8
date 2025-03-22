@@ -1,19 +1,22 @@
-#include "color.h"
-#include "hittable_list.h"
-#include "ray.h"
-#include "sphere.h"
-#include "vec3.h"
+#include "../include/color.h"
+#include "../include/hittable_list.h"
+#include "../include/interval.h"
+#include "../include/ray.h"
+#include "../include/sphere.h"
+#include "../include/vec3.h"
 
 #include <GLFW/glfw3.h>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
+const int samples_per_pixel = 10;
 
 // Global sphere pointer
 sphere *sphere1;
 
 hittable_list world;
 vec3 light_pos(0, 3, 2); // Moving Light Source
+vec3 cam_pos(0, 0, 5);
 
 void mouseCallback(GLFWwindow *window, double xpos, double ypos) {
   float norm_x = (xpos / WIDTH) * 2.0 - 1.0;
@@ -59,15 +62,40 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action,
   }
 }
 
+color write_color(const color &pixel_color) {
+  auto r = pixel_color.x();
+  auto g = pixel_color.y();
+  auto b = pixel_color.z();
+
+  r = std::sqrt(r);
+  g = std::sqrt(g);
+  b = std::sqrt(b);
+
+  static const interval intensity(0.000, 0.999);
+  int rbyte = static_cast<int>(255.999 * intensity.clamp(r));
+  int gbyte = static_cast<int>(255.999 * intensity.clamp(g));
+  int bbyte = static_cast<int>(255.999 * intensity.clamp(b));
+
+  return color(rbyte / 255.0, gbyte / 255.0, bbyte / 255.0);
+}
+vec3 sample_square() {
+  return vec3(random_double() - 0.5, random_double() - 0.5, 0);
+}
+
 void renderScene(std::vector<color> &framebuffer) {
-  vec3 cam_pos(0, 0, 5);
   float aspect_ratio = float(WIDTH) / HEIGHT;
   for (int y = 0; y < HEIGHT; y++) {
     for (int x = 0; x < WIDTH; x++) {
-      float u = (2.0 * x / WIDTH - 1) * aspect_ratio;
-      float v = (1 - 2.0 * y / HEIGHT);
-      vec3 ray_dir = unit_vector(vec3(u, v, -1));
-      framebuffer[y * WIDTH + x] = ray_color(ray(cam_pos, ray_dir));
+      color pixel_color(0, 0, 0);
+      for (int sample = 0; sample < samples_per_pixel; sample++) {
+        float u = (2.0 * (x + random_double()) / WIDTH - 1) * aspect_ratio;
+        float v = (1 - 2.0 * (y + random_double()) / HEIGHT);
+        vec3 ray_dir = unit_vector(vec3(u, v, -1));
+        ray r(cam_pos, ray_dir);
+        pixel_color += ray_color(r);
+      }
+      framebuffer[y * WIDTH + x] =
+          write_color(pixel_color * (1.0 / samples_per_pixel));
     }
   }
 }
@@ -115,5 +143,6 @@ int main() {
 
   glfwDestroyWindow(window);
   glfwTerminate();
+  delete sphere1;
   return 0;
 }

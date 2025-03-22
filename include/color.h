@@ -13,7 +13,7 @@ extern vec3 light_pos;
 
 inline color ray_color(const ray &r) {
   hit_record rec;
-  if (world.hit(r, 0.001, 100.0, rec)) {
+  if (world.hit(r, interval(0, infinity), rec)) {
     vec3 light_dir = unit_vector(light_pos - rec.p);
     double diffuse = std::max(dot(light_dir, rec.normal), 0.0);
 
